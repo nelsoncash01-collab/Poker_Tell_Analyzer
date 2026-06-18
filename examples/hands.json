@@ -1,0 +1,28 @@
+[
+  {
+    "hand_id": "hsp_s1_e1_h7",
+    "player_id": "negreanu",
+    "hand_start_time": 1234.5,
+    "hole_cards": ["Ah", "Kd"],
+    "hole_cards_revealed": true,
+    "actions": [
+      {"street": "PREFLOP", "actor": "negreanu", "action_type": "raise", "amount": 2500, "wall_clock": 1235.0},
+      {"street": "PREFLOP", "actor": "villain", "action_type": "call", "amount": 2500, "wall_clock": 1239.0},
+      {"street": "FLOP", "actor": "negreanu", "action_type": "bet", "amount": 4000, "wall_clock": 1290.0},
+      {"street": "FLOP", "actor": "villain", "action_type": "fold", "amount": 0, "wall_clock": 1296.0}
+    ]
+  },
+  {
+    "hand_id": "hsp_s1_e1_h12",
+    "player_id": "negreanu",
+    "hand_start_time": 1810.0,
+    "hole_cards": ["7c", "2d"],
+    "hole_cards_revealed": true,
+    "actions": [
+      {"street": "PREFLOP", "actor": "negreanu", "action_type": "raise", "amount": 3000, "wall_clock": 1811.0},
+      {"street": "FLOP", "actor": "negreanu", "action_type": "bet", "amount": 5000, "wall_clock": 1855.0},
+      {"street": "TURN", "actor": "negreanu", "action_type": "bet", "amount": 12000, "wall_clock": 1902.0},
+      {"street": "TURN", "actor": "villain", "action_type": "fold", "amount": 0, "wall_clock": 1910.0}
+    ]
+  }
+]

@@ -51,6 +51,26 @@ class Action:
     amount: float = 0.0
     wall_clock: float | None = None
 
+    def to_dict(self) -> dict:
+        return {
+            "street": self.street.name,
+            "actor": self.actor,
+            "action_type": self.action_type.value,
+            "amount": self.amount,
+            "wall_clock": self.wall_clock,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Action":
+        return cls(
+            street=Street[d["street"]],
+            actor=d["actor"],
+            action_type=ActionType(d["action_type"]),
+            amount=float(d.get("amount", 0.0)),
+            wall_clock=(None if d.get("wall_clock") is None
+                        else float(d["wall_clock"])),
+        )
+
 
 @dataclass
 class HandHistory:
@@ -84,3 +104,26 @@ class HandHistory:
     def action_times(self) -> list[float]:
         """Known action wall-clock times, in recorded order (skips None)."""
         return [a.wall_clock for a in self.actions if a.wall_clock is not None]
+
+    def to_dict(self) -> dict:
+        return {
+            "hand_id": self.hand_id,
+            "player_id": self.player_id,
+            "hand_start_time": self.hand_start_time,
+            "actions": [a.to_dict() for a in self.actions],
+            "hole_cards": (None if self.hole_cards is None
+                           else list(self.hole_cards)),
+            "hole_cards_revealed": self.hole_cards_revealed,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "HandHistory":
+        cards = d.get("hole_cards")
+        return cls(
+            hand_id=str(d["hand_id"]),
+            player_id=str(d["player_id"]),
+            hand_start_time=float(d["hand_start_time"]),
+            actions=[Action.from_dict(a) for a in d.get("actions", [])],
+            hole_cards=(None if cards is None else tuple(cards)),
+            hole_cards_revealed=bool(d.get("hole_cards_revealed", False)),
+        )

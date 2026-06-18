@@ -12,6 +12,9 @@ dependencies = ["numpy>=1.24", "pandas>=2.0", "av>=12.0"]
 [project.optional-dependencies]
 dev = ["pytest>=7.4"]
 
+[project.scripts]
+poker-tell = "poker_tell.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

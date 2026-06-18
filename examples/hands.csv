@@ -1,0 +1,9 @@
+hand_id,player_id,hand_start_time,hole_card_1,hole_card_2,hole_cards_revealed,street,actor,action_type,amount,wall_clock
+hsp_s1_e1_h7,negreanu,1234.5,Ah,Kd,true,PREFLOP,negreanu,raise,2500,1235.0
+hsp_s1_e1_h7,negreanu,1234.5,Ah,Kd,true,PREFLOP,villain,call,2500,1239.0
+hsp_s1_e1_h7,negreanu,1234.5,Ah,Kd,true,FLOP,negreanu,bet,4000,1290.0
+hsp_s1_e1_h7,negreanu,1234.5,Ah,Kd,true,FLOP,villain,fold,0,1296.0
+hsp_s1_e1_h12,negreanu,1810.0,7c,2d,true,PREFLOP,negreanu,raise,3000,1811.0
+hsp_s1_e1_h12,negreanu,1810.0,7c,2d,true,FLOP,negreanu,bet,5000,1855.0
+hsp_s1_e1_h12,negreanu,1810.0,7c,2d,true,TURN,negreanu,bet,12000,1902.0
+hsp_s1_e1_h12,negreanu,1810.0,7c,2d,true,TURN,villain,fold,0,1910.0

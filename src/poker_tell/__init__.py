@@ -9,6 +9,16 @@ foundation, which everything downstream depends on.
 """
 
 from poker_tell.hand_history import Action, ActionType, HandHistory, Street
+from poker_tell.hand_ingest import (
+    HandHistoryIssue,
+    HandHistoryStore,
+    ingest_hand_history,
+    label_source_summary,
+    load_hands,
+    load_hands_csv,
+    load_hands_json,
+    validate_hands,
+)
 from poker_tell.ingest import (
     VideoManifest,
     VideoSource,
@@ -36,6 +46,14 @@ __all__ = [
     "VideoSource",
     "ingest_video",
     "probe_video",
+    "HandHistoryIssue",
+    "HandHistoryStore",
+    "ingest_hand_history",
+    "label_source_summary",
+    "load_hands",
+    "load_hands_csv",
+    "load_hands_json",
+    "validate_hands",
     "HandSyncEntry",
     "StreetBoundary",
     "SyncIssue",

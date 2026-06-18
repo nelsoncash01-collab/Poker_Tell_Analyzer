@@ -24,8 +24,8 @@ accidental cross-namespace read into a loud error.
 ## Pipeline stages
 
 1. **Ingestion** — register raw footage as an immutable, hashed `VideoSource`
-   in a per-player manifest and read its true per-frame PTS timeline.
-   **Built and tested (PTS-based).**
+   (true per-frame PTS) and load the player's hand histories from JSON/CSV into
+   a per-player store. **Built and tested**, with a `poker-tell` CLI.
 2. **Synchronization** — align video frames to hand-history events at
    hand/street/action granularity. **The load-bearing wall; built and tested.**
 3. **Feature extraction** — CV + game-state features, per player. *(not yet built)*
@@ -33,7 +33,49 @@ accidental cross-namespace read into a loud error.
 5. **Per-individual baseline & model** — trained from scratch on this player only. *(not yet built)*
 6. **Reporting** — every claim carries sample size, confidence, and clip references. *(not yet built)*
 
-## What's implemented now: the sync layer
+## Giving the system videos and hands
+
+Install the CLI (`pip install -e .` exposes `poker-tell`; or run
+`python -m poker_tell.cli`). All commands take `--root` (the project dir holding
+`data/<player_id>/`, default current dir) and a `--player` id.
+
+**Videos** live anywhere on your local disk — an external drive, a NAS mount, a
+`footage/` folder. They are **never copied into the repo**; the system records
+the absolute path plus a SHA-256 and reads the true PTS timeline. Acquiring the
+footage (ripping/downloading broadcasts) is up to you; the system consumes files
+already on disk.
+
+```bash
+# one file
+poker-tell ingest-video --player negreanu --video-id hsp_s1_e1 \
+    --path /footage/negreanu/hsp_s1_e1.mp4 \
+    --source "High Stakes Poker S1E1" --air-date 2006-01-16
+
+# many episodes at once, from a catalog (see examples/videos_catalog.csv)
+poker-tell ingest-video --player negreanu --catalog episodes.csv
+```
+
+**Hand histories** are supplied as JSON (canonical, round-trips the model) or a
+flat CSV (one row per action — convenient for manual reconstruction in a
+spreadsheet, since broadcast footage rarely has a standard HH export):
+
+```bash
+poker-tell ingest-hands --player negreanu --path hands.json
+poker-tell ingest-hands --player negreanu --path hands.csv      # auto-detected
+poker-tell ls --player negreanu                                 # what's ingested
+```
+
+See `examples/hands.json`, `examples/hands.csv`, and `examples/videos_catalog.csv`
+for the exact schemas. JSON is an array of hands (`hand_id`, `player_id`,
+`hand_start_time`, optional `hole_cards` + `hole_cards_revealed`, and an
+`actions` list of `{street, actor, action_type, amount, wall_clock}`); the CSV
+repeats the hand-level fields on each action row and is grouped by `hand_id`.
+
+> Hand-history ingestion produces the `HandHistory` records that the **anchoring
+> step** (the next stage) and `SyncTable.coverage()` consume — it does not itself
+> build the sync table's frame mappings.
+
+## What's implemented now
 
 `src/poker_tell/`:
 
@@ -52,7 +94,15 @@ accidental cross-namespace read into a loud error.
 - **`video.FrameClock`** — pure frame↔time arithmetic for CFR/synthetic data
   (handles fractional fps like 29.97 so drift doesn't accumulate).
 - **`hand_history`** — minimal `Street` / `Action` / `HandHistory` model, with
-  hole-card-reveal flags (the gold-standard bluff/value labeling source).
+  hole-card-reveal flags (the gold-standard bluff/value labeling source) and
+  JSON (de)serialization.
+- **`hand_ingest`** — loads a player's hands from the canonical JSON format or a
+  flat one-row-per-action CSV, validates them (foreign player, duplicate ids,
+  out-of-order streets, hole-card/reveal-flag mismatches), and stores them in a
+  per-player, single-player-enforced `HandHistoryStore` under
+  `data/<player_id>/hand_history/`. Reports a label-source summary (how many
+  hands have revealed hole cards vs. showdown-only) so the selection-bias caveat
+  surfaces at ingest time.
 - **`sync.SyncTable`** — maps `hand_id -> (start_frame, end_frame, per-street
   boundaries)` for one player, with:
   - **structural validation** — streets inside the hand span and in betting
@@ -79,7 +129,9 @@ PYTHONPATH=src python -m pytest        # run the test suite
 
 ## Status
 
-Scaffolding + PTS-based video ingestion + a validated sync foundation.
-Downstream stages (CV features, labeling, modeling, reporting) are intentionally
-not built yet — per the project rules, nothing should be built on top of an
-unvalidated sync.
+Scaffolding + PTS-based video ingestion + JSON/CSV hand-history ingestion (with
+a `poker-tell` CLI) + a validated sync foundation. The next stage is the
+**anchoring step** that populates the sync table from footage + hands. Later
+stages (CV features, labeling, modeling, reporting) are intentionally not built
+yet — per the project rules, nothing should be built on top of an unvalidated
+sync.

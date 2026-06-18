@@ -33,13 +33,16 @@ This is intentional, not a placeholder for "future work to add transfer learning
 
 ## Current state
 
-- **Repository scaffolding + PTS-based video ingestion + sync layer foundation** is in place (`src/poker_tell/`):
+- **Repository scaffolding + PTS-based video ingestion + JSON/CSV hand-history ingestion + a `poker-tell` CLI + sync layer foundation** is in place (`src/poker_tell/`):
   - `paths.py` — per-player namespaced storage paths with a cross-player leakage guard.
   - `video.py` — a `Timebase` protocol with two implementations: `FrameClock` (pure CFR arithmetic) and `VideoTimeline` (real per-frame PTS, with VFR detection and nearest-PTS lookup). `SyncTable` accepts either.
-  - `ingest.py` — registers raw footage immutably (SHA-256 hashed, never moved/modified), reads true per-frame PTS via PyAV into a `VideoTimeline`, and persists a per-player `VideoManifest` under `data/<player_id>/video/` (timeline cached alongside). Records an `is_vfr` flag; extracts frames lazily for spot-checks. Chosen approach is PTS-based (not CFR-normalize) to avoid silent drift on VFR/inaccurate-fps broadcast files.
-  - `hand_history.py` — minimal `Street` / `Action` / `HandHistory` data model used to anchor sync.
+  - `ingest.py` — registers raw footage immutably (SHA-256 hashed, never moved/modified — referenced in place), reads true per-frame PTS via PyAV into a `VideoTimeline`, and persists a per-player `VideoManifest` under `data/<player_id>/video/` (timeline cached alongside). Records an `is_vfr` flag; extracts frames lazily for spot-checks. Chosen approach is PTS-based (not CFR-normalize) to avoid silent drift on VFR/inaccurate-fps broadcast files.
+  - `hand_history.py` — `Street` / `Action` / `HandHistory` model (with JSON (de)serialization) used to anchor sync.
+  - `hand_ingest.py` — loads a player's hands from canonical JSON or a flat one-row-per-action CSV, validates them, and stores them in a per-player single-player-enforced `HandHistoryStore` under `data/<player_id>/hand_history/`. Reports a label-source summary (revealed-hole-card vs. showdown-only) to surface the selection-bias caveat at ingest. Produces the `HandHistory` records the anchoring step and `SyncTable.coverage()` consume; it does not build the frame mappings itself.
+  - `cli.py` — `poker-tell` CLI (entry point in `pyproject.toml`; also `python -m poker_tell.cli`): `ingest-video` (single or `--catalog` batch), `ingest-hands` (JSON/CSV, multiple files), `ls`. Expected user errors (bad input, leakage guard, missing file) print cleanly and return exit code 1.
   - `sync.py` — `SyncTable` mapping `hand_id -> (start_frame, end_frame, per-street frame boundaries)`, with structural validation and clock-drift detection (linear fit of video time vs. hand-history wall-clock time, residual flagging).
-  - `tests/` — unit tests + real PyAV-backed ingestion integration tests (encode a clip, probe PTS, round-trip the manifest, decode frames back).
-- PyAV is a real dependency now (wheels bundle ffmpeg; no system ffmpeg needed). A broadcast file containing several players may be registered under multiple players' manifests — the no-transfer rule governs learned content/features, not raw pixels.
-- Not yet built: hand-history ingestion from real exports, the anchoring step that populates `SyncTable` from footage + HH (scene-cut/audio/overlay-OCR/manual anchors), CV feature extraction, labeling, per-player baseline distributions, and the per-individual model. Build these only on top of a validated sync table.
+  - `examples/` — sample `hands.json`, `hands.csv`, `videos_catalog.csv` documenting the input schemas (also used by tests).
+  - `tests/` — unit tests + real PyAV-backed integration tests (video ingest + CLI); HH loader/store/validation tests including the seam feeding loaded hands into `SyncTable.coverage()`.
+- PyAV is a real dependency (wheels bundle ffmpeg; no system ffmpeg needed). Footage is referenced in place. A broadcast file containing several players may be registered under multiple players' manifests — the no-transfer rule governs learned content/features, not raw pixels.
+- Not yet built: the anchoring step that populates `SyncTable` from footage + HH (scene-cut/audio/overlay-OCR/manual anchors), overlay-OCR reconstruction of HH, CV feature extraction, labeling, per-player baseline distributions, and the per-individual model. Build these only on top of a validated sync table.
 - No real footage or hand history has been ingested yet; no player baseline exists.
