@@ -23,7 +23,9 @@ accidental cross-namespace read into a loud error.
 
 ## Pipeline stages
 
-1. **Ingestion** — video + hand history for one player. *(not yet built)*
+1. **Ingestion** — register raw footage as an immutable, hashed `VideoSource`
+   in a per-player manifest and read its true per-frame PTS timeline.
+   **Built and tested (PTS-based).**
 2. **Synchronization** — align video frames to hand-history events at
    hand/street/action granularity. **The load-bearing wall; built and tested.**
 3. **Feature extraction** — CV + game-state features, per player. *(not yet built)*
@@ -35,8 +37,20 @@ accidental cross-namespace read into a loud error.
 
 `src/poker_tell/`:
 
-- **`video.FrameClock`** — frame↔time conversion for one source (handles
-  fractional fps like 29.97 so drift doesn't accumulate over a long episode).
+- **`ingest`** — registers raw footage without moving or modifying it: hashes
+  the file (SHA-256), reads the **real per-frame PTS** via PyAV, and stores a
+  per-player `VideoManifest` under `data/<player_id>/video/` (with the PTS
+  timeline cached alongside). Records an `is_vfr` flag so downstream code knows
+  whether a single-fps assumption would have lied about this file. Frames are
+  extracted lazily (`extract_frame`) for spot-checks, never bulk-dumped. The
+  same physical broadcast file may be registered under several players'
+  manifests — the no-transfer rule governs *learned* content, not raw pixels.
+- **`video.VideoTimeline`** — PTS-backed timebase: `time_to_frame` is a
+  nearest-PTS lookup, correct on VFR/telecined footage where `FrameClock`'s
+  arithmetic would drift. Both satisfy the `Timebase` protocol, so `SyncTable`
+  accepts either.
+- **`video.FrameClock`** — pure frame↔time arithmetic for CFR/synthetic data
+  (handles fractional fps like 29.97 so drift doesn't accumulate).
 - **`hand_history`** — minimal `Street` / `Action` / `HandHistory` model, with
   hole-card-reveal flags (the gold-standard bluff/value labeling source).
 - **`sync.SyncTable`** — maps `hand_id -> (start_frame, end_frame, per-street
@@ -65,6 +79,7 @@ PYTHONPATH=src python -m pytest        # run the test suite
 
 ## Status
 
-Scaffolding + a validated sync foundation. Downstream stages (CV features,
-labeling, modeling, reporting) are intentionally not built yet — per the project
-rules, nothing should be built on top of an unvalidated sync.
+Scaffolding + PTS-based video ingestion + a validated sync foundation.
+Downstream stages (CV features, labeling, modeling, reporting) are intentionally
+not built yet — per the project rules, nothing should be built on top of an
+unvalidated sync.

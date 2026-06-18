@@ -33,11 +33,13 @@ This is intentional, not a placeholder for "future work to add transfer learning
 
 ## Current state
 
-- **Repository scaffolding + sync layer foundation** is in place (`src/poker_tell/`):
+- **Repository scaffolding + PTS-based video ingestion + sync layer foundation** is in place (`src/poker_tell/`):
   - `paths.py` — per-player namespaced storage paths with a cross-player leakage guard.
-  - `video.py` — `FrameClock` for frame↔time conversion.
+  - `video.py` — a `Timebase` protocol with two implementations: `FrameClock` (pure CFR arithmetic) and `VideoTimeline` (real per-frame PTS, with VFR detection and nearest-PTS lookup). `SyncTable` accepts either.
+  - `ingest.py` — registers raw footage immutably (SHA-256 hashed, never moved/modified), reads true per-frame PTS via PyAV into a `VideoTimeline`, and persists a per-player `VideoManifest` under `data/<player_id>/video/` (timeline cached alongside). Records an `is_vfr` flag; extracts frames lazily for spot-checks. Chosen approach is PTS-based (not CFR-normalize) to avoid silent drift on VFR/inaccurate-fps broadcast files.
   - `hand_history.py` — minimal `Street` / `Action` / `HandHistory` data model used to anchor sync.
   - `sync.py` — `SyncTable` mapping `hand_id -> (start_frame, end_frame, per-street frame boundaries)`, with structural validation and clock-drift detection (linear fit of video time vs. hand-history wall-clock time, residual flagging).
-  - `tests/` — unit tests covering the above.
-- Not yet built (scaffolding/stubs only or absent): video ingestion from real files, CV feature extraction, labeling, per-player baseline distributions, and the per-individual model. Build these only on top of a validated sync table.
-- No footage or hand history has been ingested yet; no player baseline exists.
+  - `tests/` — unit tests + real PyAV-backed ingestion integration tests (encode a clip, probe PTS, round-trip the manifest, decode frames back).
+- PyAV is a real dependency now (wheels bundle ffmpeg; no system ffmpeg needed). A broadcast file containing several players may be registered under multiple players' manifests — the no-transfer rule governs learned content/features, not raw pixels.
+- Not yet built: hand-history ingestion from real exports, the anchoring step that populates `SyncTable` from footage + HH (scene-cut/audio/overlay-OCR/manual anchors), CV feature extraction, labeling, per-player baseline distributions, and the per-individual model. Build these only on top of a validated sync table.
+- No real footage or hand history has been ingested yet; no player baseline exists.

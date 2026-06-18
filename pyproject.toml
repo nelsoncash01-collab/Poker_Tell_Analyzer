@@ -7,7 +7,7 @@ name = "poker-tell-analysis"
 version = "0.0.1"
 description = "Per-individual poker tell analysis from recorded video + hand history. No cross-player transfer."
 requires-python = ">=3.10"
-dependencies = ["numpy>=1.24", "pandas>=2.0"]
+dependencies = ["numpy>=1.24", "pandas>=2.0", "av>=12.0"]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.4"]

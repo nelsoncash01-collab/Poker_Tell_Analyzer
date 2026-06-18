@@ -9,6 +9,12 @@ foundation, which everything downstream depends on.
 """
 
 from poker_tell.hand_history import Action, ActionType, HandHistory, Street
+from poker_tell.ingest import (
+    VideoManifest,
+    VideoSource,
+    ingest_video,
+    probe_video,
+)
 from poker_tell.sync import (
     HandSyncEntry,
     StreetBoundary,
@@ -16,7 +22,7 @@ from poker_tell.sync import (
     SyncTable,
     DriftReport,
 )
-from poker_tell.video import FrameClock
+from poker_tell.video import FrameClock, Timebase, VideoTimeline
 
 __all__ = [
     "Action",
@@ -24,6 +30,12 @@ __all__ = [
     "HandHistory",
     "Street",
     "FrameClock",
+    "Timebase",
+    "VideoTimeline",
+    "VideoManifest",
+    "VideoSource",
+    "ingest_video",
+    "probe_video",
     "HandSyncEntry",
     "StreetBoundary",
     "SyncIssue",

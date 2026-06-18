@@ -2,6 +2,10 @@
 numpy>=1.24
 pandas>=2.0
 
+# Video ingestion: PyAV reads true per-frame PTS (handles VFR/inaccurate-fps
+# broadcast footage). Wheels bundle ffmpeg, so no system ffmpeg is required.
+av>=12.0
+
 # Testing
 pytest>=7.4
 
