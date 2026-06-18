@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Per-player data and model artifacts — never commit footage or trained models.
+# Layout (kept by .gitkeep): data/<player_id>/..., models/<player_id>/...
+data/*
+!data/.gitkeep
+models/*
+!models/.gitkeep
+
+# Raw and extracted video / audio
+*.mp4
+*.mkv
+*.mov
+*.avi
+*.wav
+*.flac
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

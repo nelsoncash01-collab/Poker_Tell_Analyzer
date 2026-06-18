@@ -1,0 +1,19 @@
+# Core data/stats dependencies used by the sync layer and (later) modeling.
+numpy>=1.24
+pandas>=2.0
+
+# Testing
+pytest>=7.4
+
+# --- Not yet used; uncomment as the corresponding pipeline stage is built. ---
+# Computer vision (feature extraction):
+# opencv-python>=4.8
+# mediapipe>=0.10
+# py-feat>=0.6            # FACS action units
+# ultralytics>=8.0        # YOLOv8 (chips/cards/overlay detection)
+# Audio (only if usable table-talk audio exists):
+# openai-whisper
+# librosa>=0.10
+# Modeling:
+# scikit-learn>=1.3
+# scipy>=1.11
