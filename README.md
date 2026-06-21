@@ -41,9 +41,20 @@ Install the CLI (`pip install -e .` exposes `poker-tell`; or run
 
 **Videos** live anywhere on your local disk — an external drive, a NAS mount, a
 `footage/` folder. They are **never copied into the repo**; the system records
-the absolute path plus a SHA-256 and reads the true PTS timeline. Acquiring the
-footage (ripping/downloading broadcasts) is up to you; the system consumes files
-already on disk.
+the absolute path plus a SHA-256 and reads the true PTS timeline.
+
+If you need to fetch footage from YouTube etc., there's a `download` helper
+(uses yt-dlp). It defaults to the best available MP4; pass `--max-height 1080`
+to cap resolution. For best-quality merged MP4s, also install the **ffmpeg
+binary** on your machine (`brew install ffmpeg` / `apt install ffmpeg`).
+Download only footage you have the right to use.
+
+```bash
+poker-tell download --url "https://www.youtube.com/watch?v=..." --dest ./footage
+poker-tell download --url URL1 --url URL2 --dest ./footage --max-height 1080
+```
+
+This just puts files on disk; you then register them with `ingest-video` below.
 
 ```bash
 # one file

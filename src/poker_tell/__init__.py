@@ -8,6 +8,7 @@ The currently implemented layer is the video<->hand-history synchronization
 foundation, which everything downstream depends on.
 """
 
+from poker_tell.download import download_video, download_videos
 from poker_tell.hand_history import Action, ActionType, HandHistory, Street
 from poker_tell.hand_ingest import (
     HandHistoryIssue,
@@ -39,6 +40,8 @@ __all__ = [
     "ActionType",
     "HandHistory",
     "Street",
+    "download_video",
+    "download_videos",
     "FrameClock",
     "Timebase",
     "VideoTimeline",
