@@ -32,6 +32,16 @@ def test_ydl_opts_target_dest_and_mp4(tmp_path):
     assert str(tmp_path) in opts["outtmpl"]
     assert "%(id)s" in opts["outtmpl"]
     assert "height<=720" in opts["format"]
+    # No cookie keys unless asked for.
+    assert "cookiefile" not in opts
+    assert "cookiesfrombrowser" not in opts
+
+
+def test_ydl_opts_cookies(tmp_path):
+    opts = build_ydl_opts(tmp_path, cookiefile="cookies.txt",
+                          cookies_from_browser="chrome")
+    assert opts["cookiefile"] == "cookies.txt"
+    assert opts["cookiesfrombrowser"] == ("chrome", None, None, None)
 
 
 # --- orchestration with an injected fake YoutubeDL (no network) ------------

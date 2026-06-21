@@ -86,6 +86,7 @@ def _cmd_download(args: argparse.Namespace) -> int:
     try:
         paths = download_videos(
             args.url, args.dest, max_height=args.max_height, quiet=args.quiet,
+            cookiefile=args.cookies, cookies_from_browser=args.cookies_from_browser,
         )
     except ImportError:
         raise  # handled by main() with its install hint
@@ -164,6 +165,12 @@ def build_parser() -> argparse.ArgumentParser:
     pd.add_argument("--dest", required=True, help="directory to download into")
     pd.add_argument("--max-height", type=int, default=None,
                     help="cap resolution, e.g. 1080 (default: best available)")
+    pd.add_argument("--cookies", default=None,
+                    help="path to an exported cookies.txt (needed when YouTube "
+                         "demands sign-in, e.g. from a Codespace/datacenter IP)")
+    pd.add_argument("--cookies-from-browser", default=None,
+                    help="read cookies from a local browser, e.g. chrome "
+                         "(only works where that browser is installed)")
     pd.add_argument("--quiet", action="store_true")
     pd.set_defaults(func=_cmd_download)
 

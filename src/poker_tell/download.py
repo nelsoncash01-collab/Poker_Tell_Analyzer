@@ -59,10 +59,18 @@ def build_ydl_opts(
     max_height: int | None = None,
     outtmpl: str | None = None,
     quiet: bool = False,
+    cookiefile: str | Path | None = None,
+    cookies_from_browser: str | None = None,
 ) -> dict:
-    """Assemble the options dict passed to ``yt_dlp.YoutubeDL``."""
+    """Assemble the options dict passed to ``yt_dlp.YoutubeDL``.
+
+    ``cookiefile`` points at an exported cookies.txt; ``cookies_from_browser``
+    names a local browser to read cookies from (e.g. ``"chrome"``). Cookies let
+    YouTube see you as a logged-in human, which is usually required when
+    downloading from a datacenter IP (e.g. a Codespace).
+    """
     dest = Path(dest_dir)
-    return {
+    opts: dict = {
         "format": build_format_selector(max_height),
         "merge_output_format": "mp4",
         "outtmpl": str(dest / (outtmpl or DEFAULT_OUTTMPL)),
@@ -70,6 +78,12 @@ def build_ydl_opts(
         "noprogress": quiet,
         "ignoreerrors": False,
     }
+    if cookiefile:
+        opts["cookiefile"] = str(cookiefile)
+    if cookies_from_browser:
+        # yt-dlp expects a (browser, profile, keyring, container) tuple.
+        opts["cookiesfrombrowser"] = (cookies_from_browser, None, None, None)
+    return opts
 
 
 def _paths_from_info(info: dict) -> list[Path]:
@@ -100,20 +114,26 @@ def download_video(
     *,
     max_height: int | None = None,
     quiet: bool = False,
+    cookiefile: str | Path | None = None,
+    cookies_from_browser: str | None = None,
     _ydl_cls=None,
 ) -> list[Path]:
     """Download ``url`` into ``dest_dir``; return the downloaded file path(s).
 
     A single link yields one path; a playlist link yields one per entry. The
-    directory is created if needed. ``_ydl_cls`` is an injection point for
-    tests; leave it unset to use the real ``yt_dlp.YoutubeDL``.
+    directory is created if needed. See ``build_ydl_opts`` for the cookie
+    options. ``_ydl_cls`` is an injection point for tests; leave it unset to use
+    the real ``yt_dlp.YoutubeDL``.
     """
     dest = Path(dest_dir)
     dest.mkdir(parents=True, exist_ok=True)
     ydl_cls = _ydl_cls
     if ydl_cls is None:
         ydl_cls = _require_yt_dlp().YoutubeDL
-    opts = build_ydl_opts(dest, max_height=max_height, quiet=quiet)
+    opts = build_ydl_opts(
+        dest, max_height=max_height, quiet=quiet, cookiefile=cookiefile,
+        cookies_from_browser=cookies_from_browser,
+    )
     with ydl_cls(opts) as ydl:
         info = ydl.extract_info(url, download=True)
     return _paths_from_info(info)
@@ -125,6 +145,8 @@ def download_videos(
     *,
     max_height: int | None = None,
     quiet: bool = False,
+    cookiefile: str | Path | None = None,
+    cookies_from_browser: str | None = None,
     _ydl_cls=None,
 ) -> list[Path]:
     """Download several links into ``dest_dir``; return all resulting paths."""
@@ -133,6 +155,7 @@ def download_videos(
         paths.extend(
             download_video(
                 url, dest_dir, max_height=max_height, quiet=quiet,
+                cookiefile=cookiefile, cookies_from_browser=cookies_from_browser,
                 _ydl_cls=_ydl_cls,
             )
         )
