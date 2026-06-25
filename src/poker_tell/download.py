@@ -12,6 +12,14 @@ MP4 requires the **ffmpeg binary** on your machine (``brew install ffmpeg`` /
 ``apt install ffmpeg`` / https://ffmpeg.org). Without it, yt-dlp falls back to a
 single progressive stream, which YouTube usually caps around 720p.
 
+Downloading from YouTube currently also needs two things in the environment:
+- a **JavaScript runtime** (install Deno: ``curl -fsSL https://deno.land/install.sh | sh``)
+  so yt-dlp can solve YouTube's stream-URL ("n") challenge; without it only
+  thumbnail images are offered and the download fails with "Requested format is
+  not available".
+- **cookies** when the request comes from a datacenter IP (e.g. a Codespace):
+  export a cookies.txt and pass ``cookiefile`` / the CLI ``--cookies``.
+
 Only download footage you have the right to use; respect each site's terms.
 
 ``yt_dlp`` is an optional dependency, imported lazily with a clear error if it

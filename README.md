@@ -49,6 +49,13 @@ to cap resolution. For best-quality merged MP4s, also install the **ffmpeg
 binary** on your machine (`brew install ffmpeg` / `apt install ffmpeg`).
 Download only footage you have the right to use.
 
+Downloading from YouTube also needs a **JavaScript runtime** (install Deno:
+`curl -fsSL https://deno.land/install.sh | sh`) so yt-dlp can unlock the video
+stream — without it the download fails with "Requested format is not
+available". And from a datacenter IP (e.g. a GitHub Codespace) YouTube usually
+demands sign-in: export a `cookies.txt` from a browser where you're logged in
+and pass `--cookies cookies.txt`.
+
 ```bash
 poker-tell download --url "https://www.youtube.com/watch?v=..." --dest ./footage
 poker-tell download --url URL1 --url URL2 --dest ./footage --max-height 1080
