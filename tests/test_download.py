@@ -35,6 +35,8 @@ def test_ydl_opts_target_dest_and_mp4(tmp_path):
     # No cookie keys unless asked for.
     assert "cookiefile" not in opts
     assert "cookiesfrombrowser" not in opts
+    # Remote components default-enabled so YouTube works out of the box.
+    assert opts["remote_components"] == ["ejs:github"]
 
 
 def test_ydl_opts_cookies(tmp_path):
@@ -42,6 +44,11 @@ def test_ydl_opts_cookies(tmp_path):
                           cookies_from_browser="chrome")
     assert opts["cookiefile"] == "cookies.txt"
     assert opts["cookiesfrombrowser"] == ("chrome", None, None, None)
+
+
+def test_ydl_opts_remote_components_can_be_disabled(tmp_path):
+    opts = build_ydl_opts(tmp_path, remote_components=[])
+    assert "remote_components" not in opts
 
 
 # --- orchestration with an injected fake YoutubeDL (no network) ------------

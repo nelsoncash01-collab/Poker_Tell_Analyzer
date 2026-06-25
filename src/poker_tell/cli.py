@@ -83,10 +83,13 @@ def _cmd_ingest_video(args: argparse.Namespace) -> int:
 
 
 def _cmd_download(args: argparse.Namespace) -> int:
+    remote = [] if args.no_remote_components else (
+        args.remote_components or ["ejs:github"])
     try:
         paths = download_videos(
             args.url, args.dest, max_height=args.max_height, quiet=args.quiet,
             cookiefile=args.cookies, cookies_from_browser=args.cookies_from_browser,
+            remote_components=remote,
         )
     except ImportError:
         raise  # handled by main() with its install hint
@@ -171,6 +174,13 @@ def build_parser() -> argparse.ArgumentParser:
     pd.add_argument("--cookies-from-browser", default=None,
                     help="read cookies from a local browser, e.g. chrome "
                          "(only works where that browser is installed)")
+    pd.add_argument("--remote-components", action="append", default=None,
+                    help="yt-dlp components it may fetch when needed "
+                         "(default: ejs:github, for YouTube's JS challenge "
+                         "solver). Repeat for several.")
+    pd.add_argument("--no-remote-components", action="store_true",
+                    help="forbid all remote-component fetching (use if the "
+                         "yt-dlp-ejs package is installed locally)")
     pd.add_argument("--quiet", action="store_true")
     pd.set_defaults(func=_cmd_download)
 

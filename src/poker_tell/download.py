@@ -69,6 +69,7 @@ def build_ydl_opts(
     quiet: bool = False,
     cookiefile: str | Path | None = None,
     cookies_from_browser: str | None = None,
+    remote_components: tuple[str, ...] | list[str] | None = ("ejs:github",),
 ) -> dict:
     """Assemble the options dict passed to ``yt_dlp.YoutubeDL``.
 
@@ -76,6 +77,12 @@ def build_ydl_opts(
     names a local browser to read cookies from (e.g. ``"chrome"``). Cookies let
     YouTube see you as a logged-in human, which is usually required when
     downloading from a datacenter IP (e.g. a Codespace).
+
+    ``remote_components`` allow-lists yt-dlp components it may fetch when needed
+    (default ``["ejs:github"]``), which lets it download the JS challenge-solver
+    script required to unscramble YouTube stream URLs. Pass an empty list to
+    forbid all remote fetching (e.g. if the ``yt-dlp-ejs`` package is already
+    installed locally).
     """
     dest = Path(dest_dir)
     opts: dict = {
@@ -91,6 +98,8 @@ def build_ydl_opts(
     if cookies_from_browser:
         # yt-dlp expects a (browser, profile, keyring, container) tuple.
         opts["cookiesfrombrowser"] = (cookies_from_browser, None, None, None)
+    if remote_components:
+        opts["remote_components"] = list(remote_components)
     return opts
 
 
@@ -124,14 +133,15 @@ def download_video(
     quiet: bool = False,
     cookiefile: str | Path | None = None,
     cookies_from_browser: str | None = None,
+    remote_components: tuple[str, ...] | list[str] | None = ("ejs:github",),
     _ydl_cls=None,
 ) -> list[Path]:
     """Download ``url`` into ``dest_dir``; return the downloaded file path(s).
 
     A single link yields one path; a playlist link yields one per entry. The
-    directory is created if needed. See ``build_ydl_opts`` for the cookie
-    options. ``_ydl_cls`` is an injection point for tests; leave it unset to use
-    the real ``yt_dlp.YoutubeDL``.
+    directory is created if needed. See ``build_ydl_opts`` for the cookie and
+    remote-component options. ``_ydl_cls`` is an injection point for tests;
+    leave it unset to use the real ``yt_dlp.YoutubeDL``.
     """
     dest = Path(dest_dir)
     dest.mkdir(parents=True, exist_ok=True)
@@ -141,6 +151,7 @@ def download_video(
     opts = build_ydl_opts(
         dest, max_height=max_height, quiet=quiet, cookiefile=cookiefile,
         cookies_from_browser=cookies_from_browser,
+        remote_components=remote_components,
     )
     with ydl_cls(opts) as ydl:
         info = ydl.extract_info(url, download=True)
@@ -155,6 +166,7 @@ def download_videos(
     quiet: bool = False,
     cookiefile: str | Path | None = None,
     cookies_from_browser: str | None = None,
+    remote_components: tuple[str, ...] | list[str] | None = ("ejs:github",),
     _ydl_cls=None,
 ) -> list[Path]:
     """Download several links into ``dest_dir``; return all resulting paths."""
@@ -164,7 +176,7 @@ def download_videos(
             download_video(
                 url, dest_dir, max_height=max_height, quiet=quiet,
                 cookiefile=cookiefile, cookies_from_browser=cookies_from_browser,
-                _ydl_cls=_ydl_cls,
+                remote_components=remote_components, _ydl_cls=_ydl_cls,
             )
         )
     return paths
