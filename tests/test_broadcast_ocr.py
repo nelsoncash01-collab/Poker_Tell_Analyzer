@@ -114,3 +114,32 @@ def test_roster_snaps_noisy_name():
     reading = read_frame(frame, layout, roster=["NEGREANU", "IVEY"],
                          text_ocr=fake_ocr)
     assert reading.seats[0].name == "NEGREANU"
+
+
+def test_read_frame_detection_path_with_injected_detector():
+    """layout=None uses the detection path; here we inject a fake detector."""
+    from poker_tell.broadcast.detect import Box, DetectedOverlays, SeatBoxes
+
+    frame = np.full((200, 400, 3), 10, dtype=np.uint8)
+    pot_box = Box(5, 5, 60, 20)
+    name_box = Box(5, 40, 80, 18)
+    status_box = Box(5, 60, 80, 18)
+    # paint each box a unique sentinel value
+    for box, val in [(pot_box, 70), (name_box, 80), (status_box, 90)]:
+        frame[box.y:box.y1, box.x:box.x1] = val
+    text = {70: "POT $8,300", 80: "IVEY", 90: "RAISE TO $3,000"}
+
+    def fake_detector(bgr, **kwargs):
+        return DetectedOverlays(
+            pot=pot_box, pot_amount=pot_box,
+            seats=[SeatBoxes(name=name_box, status=status_box)], board=[],
+        )
+
+    def fake_ocr(crop_img):
+        return text.get(int(round(float(crop_img.mean()))), "")
+
+    reading = read_frame(frame, detector=fake_detector, text_ocr=fake_ocr)
+    assert reading.pot == 8300
+    assert reading.seats[0].name == "IVEY"
+    assert reading.seats[0].status.action_type == "raise"
+    assert reading.seats[0].status.amount == 3000

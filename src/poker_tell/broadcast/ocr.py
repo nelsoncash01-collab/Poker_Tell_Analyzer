@@ -115,8 +115,10 @@ def _looks_like_card_tile(tile_rgb: np.ndarray, *, min_luma: float = 110.0) -> b
 
 def read_frame(
     frame_rgb: np.ndarray,
-    layout: OverlayLayout,
+    layout: OverlayLayout | None = None,
     *,
+    detector=None,
+    profile=None,
     rank_templates: dict[str, np.ndarray] | None = None,
     suit_templates: dict[str, np.ndarray] | None = None,
     roster: list[str] | None = None,
@@ -124,11 +126,23 @@ def read_frame(
 ) -> FrameReading:
     """Read pot, board, and name plates from one RGB frame.
 
+    By default the overlay regions are **detected by appearance**
+    (``broadcast.detect.detect_overlays``), which handles the compilation's
+    varying crops/zoom; pass a ``profile`` (``broadcast.formats.FormatProfile``)
+    to seed the banner colour for the current format. Passing a fixed ``layout``
+    instead uses the legacy fractional-ROI path (manual fallback).
+
     Card recognition runs only if both template sets are supplied (otherwise
-    cards read as ``None`` and you still get pot/names/actions). ``roster`` is an
-    optional list of known player surnames used to snap noisy name OCR to the
-    closest known name. ``text_ocr`` is injectable for testing.
+    cards read as ``None`` and you still get pot/names/actions). ``roster`` snaps
+    noisy name OCR to the closest known surname. ``detector`` / ``text_ocr`` are
+    injectable for testing.
     """
+    if layout is None:
+        return _read_frame_detected(
+            frame_rgb, detector=detector, profile=profile,
+            rank_templates=rank_templates, suit_templates=suit_templates,
+            roster=roster, text_ocr=text_ocr,
+        )
     active = detect_active_area(frame_rgb)
     has_templates = bool(rank_templates) and bool(suit_templates)
 
@@ -159,6 +173,55 @@ def read_frame(
         card = read_card(layout.board_slot(j))
         if card is None:
             break  # board fills left-to-right; stop at first empty slot
+        board.append(card)
+
+    return FrameReading(pot=pot, board=board, seats=seats)
+
+
+def _read_frame_detected(
+    frame_rgb, *, detector, profile, rank_templates, suit_templates, roster,
+    text_ocr,
+):
+    """Detection-based reading: find overlay boxes, then OCR/recognize them."""
+    det_fn = detector
+    if det_fn is None:
+        from poker_tell.broadcast.detect import detect_overlays
+
+        det_fn = detect_overlays
+    kwargs = {}
+    if profile is not None:
+        kwargs["red_ranges"] = profile.red_ranges()
+    det = det_fn(frame_rgb[:, :, ::-1], **kwargs)  # detector expects BGR
+
+    has_templates = bool(rank_templates) and bool(suit_templates)
+
+    def read_card(box) -> str | None:
+        if box is None or not has_templates:
+            return None
+        tile = box.crop(frame_rgb)
+        if not _looks_like_card_tile(tile):
+            return None
+        return recognize_card(tile, rank_templates, suit_templates)
+
+    pot = None
+    if det.pot_amount is not None:
+        pot = parse_pot(text_ocr(det.pot_amount.crop(frame_rgb)))
+
+    seats: list[SeatReading] = []
+    for s in det.seats:
+        name = text_ocr(s.name.crop(frame_rgb))
+        if roster and name:
+            name = _snap_name(name, roster)
+        c1, c2 = read_card(s.card1), read_card(s.card2)
+        hole = (c1, c2) if c1 and c2 else None
+        status = parse_status(text_ocr(s.status.crop(frame_rgb)))
+        seats.append(SeatReading(name=name or None, hole_cards=hole, status=status))
+
+    board: list[str] = []
+    for b in det.board:
+        card = read_card(b)
+        if card is None:
+            break
         board.append(card)
 
     return FrameReading(pot=pot, board=board, seats=seats)

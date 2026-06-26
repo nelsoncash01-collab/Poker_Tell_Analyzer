@@ -97,27 +97,35 @@ repeats the hand-level fields on each action row and is grouped by `hand_id`.
 
 When there's no hand-history export, hands are reconstructed from the on-screen
 graphics (pot, board, and each player's name plate with hole cards + their
-action / equity %). Stage 1 reads a single frame, and is the piece you calibrate
-first. It needs the OCR extra plus the tesseract binary:
+action / equity %). Because a compilation splices clips at **different
+crops/zooms**, the overlays are **detected by appearance every frame** — the
+maroon POT banner / name strips by colour and the white card tiles by shape —
+rather than assumed at fixed coordinates. The POT banner anchors the rest and
+sets the scale, so detection self-adjusts to each clip's framing. Needs the OCR
+extra plus the tesseract binary:
 
 ```bash
 pip install -e ".[ocr]"
 sudo apt-get install -y tesseract-ocr        # or: brew install tesseract
 
-# dump the overlay crops of one frame to check the regions line up
-poker-tell dump-regions --video-id negreanu_hsp_compilation --player negreanu \
-    --at 00:10:00 --out ./calib
+# calibration: draw the DETECTED boxes on a frame so you can see they line up
+poker-tell detect-overlays --video-id negreanu_hsp_compilation --player negreanu \
+    --at 00:10:00 --out ./det_10m.png
 # read pot / board / name-plates (actions) from one frame
 poker-tell read-frame --video-id negreanu_hsp_compilation --player negreanu \
     --at 00:10:00 --roster NEGREANU,IVEY,HELLMUTH,GREENSTEIN
+# find where the compilation switches graphics formats (pot colour/location)
+poker-tell format-segments --video-id negreanu_hsp_compilation --player negreanu
 ```
 
-Card recognition is numpy-only and needs templates calibrated from real frames
-(`--card-templates <dir>`); without them you still get pot, names, and actions.
-The overlay layout (`pokergo_classic_hsp`) is a first-pass calibration — tune it
-with `dump-regions` against your footage. Later stages (auto hand segmentation,
-assembling `HandHistory` + a `SyncTable`, then bluff/value labeling) build on a
-trustworthy single-frame reader.
+The POT banner's colour and location are **learned, not hardcoded**, and
+`format-segments` flags where they change across the compilation — so detection
+adapts when the format/era switches. Card recognition is numpy-only and needs
+templates calibrated from real frames (`--card-templates <dir>`); without them
+you still get pot, names, and actions. Tune the detector's colour/size
+thresholds (not fixed coordinates) using `detect-overlays`. Later stages (auto
+hand segmentation, assembling `HandHistory` + a `SyncTable`, then bluff/value
+labeling) build on a trustworthy single-frame reader.
 
 ## What's implemented now
 

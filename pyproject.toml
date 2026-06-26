@@ -13,7 +13,7 @@ dependencies = ["numpy>=1.24", "pandas>=2.0", "av>=12.0", "yt-dlp>=2024.1.0"]
 dev = ["pytest>=7.4", "Pillow>=10.0"]
 # Broadcast overlay OCR (Stage 1+). Also needs the system tesseract binary:
 #   apt-get install -y tesseract-ocr   (or: brew install tesseract)
-ocr = ["pytesseract>=0.3.10", "Pillow>=10.0"]
+ocr = ["opencv-python-headless>=4.8", "pytesseract>=0.3.10", "Pillow>=10.0"]
 
 [project.scripts]
 poker-tell = "poker_tell.cli:main"

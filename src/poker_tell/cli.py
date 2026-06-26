@@ -206,7 +206,8 @@ def _cmd_read_frame(args: argparse.Namespace) -> int:
     from poker_tell.broadcast.cards import load_templates
 
     frame, seconds = _resolve_frame(args)
-    layout = _load_layout(args.layout)
+    # Default to appearance-based detection; --layout forces the manual fallback.
+    layout = _load_layout(args.layout) if args.layout else None
     rank_t = suit_t = None
     if args.card_templates:
         templates = load_templates(args.card_templates)
@@ -234,33 +235,46 @@ def _cmd_read_frame(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_dump_regions(args: argparse.Namespace) -> int:
-    """Save each overlay crop of a frame as PNG, for visual layout calibration."""
-    try:
-        from PIL import Image
-    except ImportError as exc:
-        raise ImportError("dump-regions needs Pillow: `pip install Pillow`") from exc
-    from poker_tell.broadcast.layout import crop, detect_active_area
+def _cmd_detect_overlays(args: argparse.Namespace) -> int:
+    """Draw the detected overlay boxes on a frame and save it, for calibration."""
+    from poker_tell.broadcast.detect import detect_overlays, draw_overlays
 
+    cv2 = __import__("cv2")
     frame, seconds = _resolve_frame(args)
-    layout = _load_layout(args.layout)
+    bgr = frame[:, :, ::-1]  # extract gives RGB; cv2 wants BGR
+    det = detect_overlays(bgr)
+    annotated = draw_overlays(bgr, det)
     out = Path(args.out)
-    out.mkdir(parents=True, exist_ok=True)
-    active = detect_active_area(frame)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    cv2.imwrite(str(out), annotated)
+    print(f"frame @ {seconds:.1f}s — detected: "
+          f"pot={'yes' if det.pot else 'no'}, "
+          f"{len(det.seats)} plate(s), {len(det.board)} board card(s)")
+    print(f"wrote annotated frame to {out}. Open it: each box should sit on the "
+          "POT banner, name plates, hole-card tiles, and board. Tune color/size "
+          "thresholds (not coordinates) if a box is off.")
+    return 0
 
-    regions = {"pot": layout.pot}
-    for i in range(layout.max_plates):
-        for key, region in layout.plate_regions(i).items():
-            regions[f"plate{i}_{key}"] = region
-    for j in range(layout.board_slots):
-        regions[f"board{j}"] = layout.board_slot(j)
 
-    Image.fromarray(frame.astype("uint8")).save(out / "full_frame.png")
-    for name, region in regions.items():
-        sub = crop(frame, region, active)
-        Image.fromarray(sub.astype("uint8")).save(out / f"{name}.png")
-    print(f"wrote {len(regions) + 1} crops to {out} (frame @ {seconds:.1f}s). "
-          "Open them to check the regions line up; adjust the layout if not.")
+def _cmd_format_segments(args: argparse.Namespace) -> int:
+    """Detect and print where the compilation switches graphics formats."""
+    from poker_tell.broadcast.formats import track_formats
+
+    manifest = VideoManifest.load(args.root, args.player)
+    if args.video_id not in manifest.sources:
+        raise ValueError(f"no video {args.video_id!r} for player {args.player!r}")
+    source = manifest.sources[args.video_id]
+    timeline = manifest.timeline(args.video_id)
+    segments = track_formats(source, timeline=timeline,
+                             sample_seconds=args.sample_seconds)
+    print(f"{len(segments)} format segment(s):")
+    for seg in segments:
+        t0 = timeline.frame_to_time(seg.start_frame)
+        t1 = timeline.frame_to_time(min(seg.end_frame, timeline.n_frames - 1))
+        p = seg.profile
+        print(f"  frames {seg.start_frame}-{seg.end_frame} "
+              f"({t0:.0f}s-{t1:.0f}s): pot HSV={p.pot_color_hsv} "
+              f"box=({p.pot_box.x},{p.pot_box.y},{p.pot_box.w},{p.pot_box.h})")
     return 0
 
 
@@ -326,23 +340,31 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--path", help="path to a video file")
         p.add_argument("--video-id", help="registered video id (with --player)")
         p.add_argument("--player", help="player namespace for --video-id")
-        p.add_argument("--layout", default="pokergo_classic_hsp",
-                       help="overlay layout name")
 
     pr = sub.add_parser("read-frame",
-                        help="OCR one frame's overlays (pot/board/plates)")
+                        help="read one frame's overlays (pot/board/plates)")
     _add_frame_source(pr)
     pr.add_argument("--card-templates", default=None,
                     help="dir of rank_*.npy / suit_*.npy card templates")
     pr.add_argument("--roster", default=None,
                     help="comma-separated known surnames to snap names to")
+    pr.add_argument("--layout", default=None,
+                    help="force the manual fractional layout (default: auto-detect)")
     pr.set_defaults(func=_cmd_read_frame)
 
-    pg = sub.add_parser("dump-regions",
-                        help="save a frame's overlay crops for calibration")
-    _add_frame_source(pg)
-    pg.add_argument("--out", required=True, help="output directory for crops")
-    pg.set_defaults(func=_cmd_dump_regions)
+    po = sub.add_parser("detect-overlays",
+                        help="draw detected overlay boxes on a frame (calibration)")
+    _add_frame_source(po)
+    po.add_argument("--out", required=True, help="output PNG path")
+    po.set_defaults(func=_cmd_detect_overlays)
+
+    pf = sub.add_parser("format-segments",
+                        help="detect where the compilation switches formats")
+    pf.add_argument("--player", required=True)
+    pf.add_argument("--video-id", required=True)
+    pf.add_argument("--sample-seconds", type=float, default=2.0,
+                    help="seconds between sampled frames (default: 2)")
+    pf.set_defaults(func=_cmd_format_segments)
 
     return parser
 

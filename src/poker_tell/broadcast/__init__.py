@@ -11,6 +11,20 @@ text OCR step needs ``pytesseract`` (+ ``Pillow``), imported lazily.
 """
 
 from poker_tell.broadcast.cards import recognize_card, normalize_card_str
+from poker_tell.broadcast.detect import (
+    Box,
+    DetectedOverlays,
+    SeatBoxes,
+    detect_overlays,
+    draw_overlays,
+)
+from poker_tell.broadcast.formats import (
+    FormatProfile,
+    FormatSegment,
+    profiles_differ,
+    segment_profiles,
+    track_formats,
+)
 from poker_tell.broadcast.layout import (
     OverlayLayout,
     POKERGO_CLASSIC_HSP,
@@ -29,6 +43,16 @@ from poker_tell.broadcast.ocr import (
 __all__ = [
     "recognize_card",
     "normalize_card_str",
+    "Box",
+    "DetectedOverlays",
+    "SeatBoxes",
+    "detect_overlays",
+    "draw_overlays",
+    "FormatProfile",
+    "FormatSegment",
+    "profiles_differ",
+    "segment_profiles",
+    "track_formats",
     "OverlayLayout",
     "POKERGO_CLASSIC_HSP",
     "Region",
