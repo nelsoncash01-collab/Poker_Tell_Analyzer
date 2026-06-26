@@ -11,6 +11,12 @@ av>=12.0
 # PyAV's bundled libs): brew/apt install ffmpeg, or https://ffmpeg.org.
 yt-dlp>=2024.1.0
 
+# Broadcast overlay OCR (reading pot/cards/actions from on-screen graphics).
+# Card recognition is numpy-only; the text step needs pytesseract + Pillow and
+# the system tesseract binary (apt-get install -y tesseract-ocr).
+pytesseract>=0.3.10
+Pillow>=10.0
+
 # Testing
 pytest>=7.4
 

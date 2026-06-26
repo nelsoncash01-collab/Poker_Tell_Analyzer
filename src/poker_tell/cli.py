@@ -5,9 +5,12 @@ copied or moved, only recorded by absolute path + SHA-256. Run ``poker-tell
 --help`` (or ``python -m poker_tell.cli --help``) for usage.
 
 Subcommands:
+- ``download`` — fetch source video with yt-dlp.
 - ``ingest-video`` — register one file, or batch-register from a catalog.
 - ``ingest-hands`` — load hands from JSON/CSV file(s).
 - ``ls`` — show what has been ingested for a player.
+- ``read-frame`` — OCR one frame's overlays (pot / board / name plates).
+- ``dump-regions`` — save the overlay crops of one frame for layout calibration.
 """
 
 from __future__ import annotations
@@ -17,10 +20,48 @@ import csv
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 from poker_tell.download import download_videos
 from poker_tell.hand_ingest import ingest_hand_history, label_source_summary
 from poker_tell.ingest import VideoManifest, ingest_video
+
+
+def _parse_timestamp(text: str) -> float:
+    """Parse ``HH:MM:SS`` / ``MM:SS`` / plain seconds into float seconds."""
+    text = text.strip()
+    if ":" in text:
+        parts = [float(p) for p in text.split(":")]
+        seconds = 0.0
+        for p in parts:
+            seconds = seconds * 60 + p
+        return seconds
+    return float(text)
+
+
+def _resolve_frame(args) -> "tuple":
+    """Resolve (frame_rgb, video_seconds) for read-frame / dump-regions.
+
+    Accepts either ``--path FILE`` or ``--video-id ID --player P`` (looked up in
+    the player's manifest). Reuses the ingest frame-extraction path.
+    """
+    from poker_tell.ingest import extract_frames, probe_video
+
+    seconds = _parse_timestamp(args.at)
+    if args.path:
+        timeline, _ = probe_video(args.path)
+        source = SimpleNamespace(path=str(args.path))
+    else:
+        if not (args.video_id and args.player):
+            raise ValueError("provide --path, or --video-id with --player")
+        manifest = VideoManifest.load(args.root, args.player)
+        if args.video_id not in manifest.sources:
+            raise ValueError(f"no video {args.video_id!r} for player {args.player!r}")
+        source = manifest.sources[args.video_id]
+        timeline = manifest.timeline(args.video_id)
+    frame_index = timeline.time_to_frame(seconds)
+    frame = next(iter(extract_frames(source, [frame_index])))
+    return frame, seconds
 
 def _read_video_catalog(path: Path) -> list[dict]:
     """Parse a video catalog (CSV or JSON) into a list of entry dicts.
@@ -151,6 +192,78 @@ def _cmd_ls(args: argparse.Namespace) -> int:
     return 0
 
 
+def _load_layout(name: str):
+    from poker_tell.broadcast.layout import POKERGO_CLASSIC_HSP
+
+    layouts = {"pokergo_classic_hsp": POKERGO_CLASSIC_HSP}
+    if name not in layouts:
+        raise ValueError(f"unknown layout {name!r}; known: {sorted(layouts)}")
+    return layouts[name]
+
+
+def _cmd_read_frame(args: argparse.Namespace) -> int:
+    from poker_tell.broadcast import read_frame
+    from poker_tell.broadcast.cards import load_templates
+
+    frame, seconds = _resolve_frame(args)
+    layout = _load_layout(args.layout)
+    rank_t = suit_t = None
+    if args.card_templates:
+        templates = load_templates(args.card_templates)
+        rank_t = {k[5:]: v for k, v in templates.items() if k.startswith("rank_")}
+        suit_t = {k[5:]: v for k, v in templates.items() if k.startswith("suit_")}
+    roster = args.roster.split(",") if args.roster else None
+    reading = read_frame(frame, layout, rank_templates=rank_t,
+                         suit_templates=suit_t, roster=roster)
+
+    print(f"@ {seconds:.1f}s")
+    print(f"pot: {reading.pot}")
+    print(f"board: {' '.join(reading.board) if reading.board else '(none)'}")
+    if not args.card_templates:
+        print("  (cards not read — pass --card-templates <dir> once calibrated)")
+    for s in reading.seats:
+        st = s.status
+        if st.kind == "action":
+            status = f"{st.action_type}" + (f" {st.amount}" if st.amount else "")
+        elif st.kind == "equity":
+            status = f"{st.equity_pct}%"
+        else:
+            status = st.kind
+        cards = " ".join(s.hole_cards) if s.hole_cards else "??"
+        print(f"  - {s.name}: {cards} [{status}]")
+    return 0
+
+
+def _cmd_dump_regions(args: argparse.Namespace) -> int:
+    """Save each overlay crop of a frame as PNG, for visual layout calibration."""
+    try:
+        from PIL import Image
+    except ImportError as exc:
+        raise ImportError("dump-regions needs Pillow: `pip install Pillow`") from exc
+    from poker_tell.broadcast.layout import crop, detect_active_area
+
+    frame, seconds = _resolve_frame(args)
+    layout = _load_layout(args.layout)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    active = detect_active_area(frame)
+
+    regions = {"pot": layout.pot}
+    for i in range(layout.max_plates):
+        for key, region in layout.plate_regions(i).items():
+            regions[f"plate{i}_{key}"] = region
+    for j in range(layout.board_slots):
+        regions[f"board{j}"] = layout.board_slot(j)
+
+    Image.fromarray(frame.astype("uint8")).save(out / "full_frame.png")
+    for name, region in regions.items():
+        sub = crop(frame, region, active)
+        Image.fromarray(sub.astype("uint8")).save(out / f"{name}.png")
+    print(f"wrote {len(regions) + 1} crops to {out} (frame @ {seconds:.1f}s). "
+          "Open them to check the regions line up; adjust the layout if not.")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="poker-tell",
@@ -206,6 +319,30 @@ def build_parser() -> argparse.ArgumentParser:
     pl = sub.add_parser("ls", help="show what's ingested for a player")
     pl.add_argument("--player", required=True)
     pl.set_defaults(func=_cmd_ls)
+
+    def _add_frame_source(p):
+        p.add_argument("--at", required=True,
+                       help="timestamp HH:MM:SS / MM:SS / seconds")
+        p.add_argument("--path", help="path to a video file")
+        p.add_argument("--video-id", help="registered video id (with --player)")
+        p.add_argument("--player", help="player namespace for --video-id")
+        p.add_argument("--layout", default="pokergo_classic_hsp",
+                       help="overlay layout name")
+
+    pr = sub.add_parser("read-frame",
+                        help="OCR one frame's overlays (pot/board/plates)")
+    _add_frame_source(pr)
+    pr.add_argument("--card-templates", default=None,
+                    help="dir of rank_*.npy / suit_*.npy card templates")
+    pr.add_argument("--roster", default=None,
+                    help="comma-separated known surnames to snap names to")
+    pr.set_defaults(func=_cmd_read_frame)
+
+    pg = sub.add_parser("dump-regions",
+                        help="save a frame's overlay crops for calibration")
+    _add_frame_source(pg)
+    pg.add_argument("--out", required=True, help="output directory for crops")
+    pg.set_defaults(func=_cmd_dump_regions)
 
     return parser
 
