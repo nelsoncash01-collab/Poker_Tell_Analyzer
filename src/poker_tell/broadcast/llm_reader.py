@@ -46,16 +46,22 @@ READING_PROMPT = (
     "Read this poker broadcast frame's graphics. Report:\n"
     "- pot: the POT amount as an integer (e.g. $203,800 -> 203800), or null if "
     "no pot graphic is shown.\n"
-    "- board: the community cards shown along the bottom, left to right, each as "
-    "a 2-character code (rank + suit; rank in 23456789TJQKA with T for ten, "
-    "suit in c/d/h/s). Empty list if none shown.\n"
+    "- board: ONLY the community cards in the bottom-center strip, left to right, "
+    "each as a 2-character code (rank + suit; rank in 23456789TJQKA with T for "
+    "ten, suit in c/d/h/s). If no community-card strip is shown (e.g. a pre-flop "
+    "all-in equity screen), return an empty list. NEVER put a player's hole "
+    "cards in board.\n"
     "- seats: one entry per player name-plate shown (left column). For each: "
     "name (the surname on the plate), hole_cards (that player's two cards as "
     "2-char codes, or null if not shown), and status — the line under the name: "
     "kind 'action' with action_type (bet/call/raise/check/fold/all_in) and "
     "amount when an action like 'RAISE TO $3,000' is shown; kind 'equity' with "
     "equity_pct when a win % is shown; kind 'winner' when it says WINNER; "
-    "otherwise kind 'none'. Use null for fields that don't apply."
+    "otherwise kind 'none'. Use null for fields that don't apply.\n"
+    "Read suits from the symbol SHAPE, not just colour. The two black suits are "
+    "the common mistake: clubs (three rounded lobes) vs spades (one pointed leaf "
+    "above the stem) — look closely and don't confuse them. Red suits: hearts "
+    "(rounded) vs diamonds (angular)."
 )
 
 # JSON-schema for output_config.format (structured outputs). Every object sets
@@ -127,7 +133,7 @@ def _require_pillow():
 # --- image encoding --------------------------------------------------------
 
 
-def frame_to_png_base64(frame_rgb: np.ndarray, *, max_width: int = 1280) -> str:
+def frame_to_png_base64(frame_rgb: np.ndarray, *, max_width: int = 1568) -> str:
     """Downscale (to cap image tokens) and PNG-encode an RGB frame as base64."""
     Image = _require_pillow()
     img = Image.fromarray(np.ascontiguousarray(frame_rgb).astype("uint8"))
@@ -139,7 +145,7 @@ def frame_to_png_base64(frame_rgb: np.ndarray, *, max_width: int = 1280) -> str:
     return base64.standard_b64encode(buf.getvalue()).decode("ascii")
 
 
-def frame_to_image_block(frame_rgb: np.ndarray, *, max_width: int = 1280) -> dict:
+def frame_to_image_block(frame_rgb: np.ndarray, *, max_width: int = 1568) -> dict:
     """An Anthropic image content block for ``frame_rgb`` (base64 PNG)."""
     return {
         "type": "image",
@@ -215,7 +221,7 @@ def read_frame_llm(
     *,
     client=None,
     model: str = DEFAULT_MODEL,
-    max_width: int = 1280,
+    max_width: int = 1568,
 ) -> FrameReading:
     """Read one frame's overlays via Claude; return a ``FrameReading``.
 

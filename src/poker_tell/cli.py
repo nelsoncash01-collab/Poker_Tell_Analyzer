@@ -216,7 +216,7 @@ def _cmd_read_frame(args: argparse.Namespace) -> int:
                 "set ANTHROPIC_API_KEY to use --reader llm "
                 "(export ANTHROPIC_API_KEY=...)"
             )
-        reading = read_frame_llm(frame, model=args.model)
+        reading = read_frame_llm(frame, model=args.model, max_width=args.max_width)
     else:
         # Appearance-based detection; --layout forces the manual fallback.
         layout = _load_layout(args.layout) if args.layout else None
@@ -361,6 +361,9 @@ def build_parser() -> argparse.ArgumentParser:
                          "detect = free OpenCV detector (default: llm)")
     pr.add_argument("--model", default="claude-haiku-4-5",
                     help="LLM model for --reader llm (default: claude-haiku-4-5)")
+    pr.add_argument("--max-width", type=int, default=1568,
+                    help="(llm) downscale frames wider than this before sending; "
+                         "higher = clearer suit symbols, more tokens")
     pr.add_argument("--card-templates", default=None,
                     help="(detect) dir of rank_*.npy / suit_*.npy card templates")
     pr.add_argument("--roster", default=None,
