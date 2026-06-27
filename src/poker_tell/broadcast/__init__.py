@@ -31,6 +31,11 @@ from poker_tell.broadcast.layout import (
     Region,
     detect_active_area,
 )
+from poker_tell.broadcast.llm_reader import (
+    DEFAULT_MODEL,
+    read_frame_llm,
+    reading_from_json,
+)
 from poker_tell.broadcast.ocr import (
     FrameReading,
     PlateStatus,
@@ -63,4 +68,7 @@ __all__ = [
     "parse_pot",
     "parse_status",
     "read_frame",
+    "read_frame_llm",
+    "reading_from_json",
+    "DEFAULT_MODEL",
 ]

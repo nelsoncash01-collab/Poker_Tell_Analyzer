@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -206,21 +207,32 @@ def _cmd_read_frame(args: argparse.Namespace) -> int:
     from poker_tell.broadcast.cards import load_templates
 
     frame, seconds = _resolve_frame(args)
-    # Default to appearance-based detection; --layout forces the manual fallback.
-    layout = _load_layout(args.layout) if args.layout else None
-    rank_t = suit_t = None
-    if args.card_templates:
-        templates = load_templates(args.card_templates)
-        rank_t = {k[5:]: v for k, v in templates.items() if k.startswith("rank_")}
-        suit_t = {k[5:]: v for k, v in templates.items() if k.startswith("suit_")}
-    roster = args.roster.split(",") if args.roster else None
-    reading = read_frame(frame, layout, rank_templates=rank_t,
-                         suit_templates=suit_t, roster=roster)
 
-    print(f"@ {seconds:.1f}s")
+    if args.reader == "llm":
+        from poker_tell.broadcast import read_frame_llm
+
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            raise ValueError(
+                "set ANTHROPIC_API_KEY to use --reader llm "
+                "(export ANTHROPIC_API_KEY=...)"
+            )
+        reading = read_frame_llm(frame, model=args.model)
+    else:
+        # Appearance-based detection; --layout forces the manual fallback.
+        layout = _load_layout(args.layout) if args.layout else None
+        rank_t = suit_t = None
+        if args.card_templates:
+            templates = load_templates(args.card_templates)
+            rank_t = {k[5:]: v for k, v in templates.items() if k.startswith("rank_")}
+            suit_t = {k[5:]: v for k, v in templates.items() if k.startswith("suit_")}
+        roster = args.roster.split(",") if args.roster else None
+        reading = read_frame(frame, layout, rank_templates=rank_t,
+                             suit_templates=suit_t, roster=roster)
+
+    print(f"@ {seconds:.1f}s  (reader: {args.reader})")
     print(f"pot: {reading.pot}")
     print(f"board: {' '.join(reading.board) if reading.board else '(none)'}")
-    if not args.card_templates:
+    if args.reader == "detect" and not args.card_templates:
         print("  (cards not read — pass --card-templates <dir> once calibrated)")
     for s in reading.seats:
         st = s.status
@@ -344,12 +356,17 @@ def build_parser() -> argparse.ArgumentParser:
     pr = sub.add_parser("read-frame",
                         help="read one frame's overlays (pot/board/plates)")
     _add_frame_source(pr)
+    pr.add_argument("--reader", default="llm", choices=["llm", "detect"],
+                    help="llm = Claude vision (needs ANTHROPIC_API_KEY); "
+                         "detect = free OpenCV detector (default: llm)")
+    pr.add_argument("--model", default="claude-haiku-4-5",
+                    help="LLM model for --reader llm (default: claude-haiku-4-5)")
     pr.add_argument("--card-templates", default=None,
-                    help="dir of rank_*.npy / suit_*.npy card templates")
+                    help="(detect) dir of rank_*.npy / suit_*.npy card templates")
     pr.add_argument("--roster", default=None,
-                    help="comma-separated known surnames to snap names to")
+                    help="(detect) comma-separated known surnames to snap to")
     pr.add_argument("--layout", default=None,
-                    help="force the manual fractional layout (default: auto-detect)")
+                    help="(detect) force the manual fractional layout")
     pr.set_defaults(func=_cmd_read_frame)
 
     po = sub.add_parser("detect-overlays",

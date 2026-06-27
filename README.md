@@ -97,12 +97,30 @@ repeats the hand-level fields on each action row and is grouped by `hand_id`.
 
 When there's no hand-history export, hands are reconstructed from the on-screen
 graphics (pot, board, and each player's name plate with hole cards + their
-action / equity %). Because a compilation splices clips at **different
-crops/zooms**, the overlays are **detected by appearance every frame** — the
-maroon POT banner / name strips by colour and the white card tiles by shape —
-rather than assumed at fixed coordinates. The POT banner anchors the rest and
-sets the scale, so detection self-adjusts to each clip's framing. Needs the OCR
-extra plus the tesseract binary:
+action / equity %).
+
+**Recommended reader: Claude vision (`--reader llm`).** Because the compilation
+splices clips at different crops/zooms and colours, hand-tuned pixel rules proved
+brittle; instead, Claude reads the graphics directly and returns structured data.
+It reads **game-state ground truth only** (pot/board/cards/names/actions) — never
+behaviour or bluff/value judgements. Needs the `llm` extra and your API key:
+
+```bash
+pip install -e ".[llm]"
+export ANTHROPIC_API_KEY=...        # never commit this
+poker-tell read-frame --reader llm --model claude-haiku-4-5 \
+    --video-id negreanu_hsp_compilation --player negreanu --at 00:10:00
+```
+
+The cost-optimal plan (see the plan doc) uses Claude a *small, fixed* number of
+times to **calibrate** a free detector that then reads the whole video for ~$0,
+with Claude as a fallback only on low-confidence frames — so the big run stays
+nearly free.
+
+**Free fallback reader: appearance-based detection (`--reader detect`).** Finds
+the maroon POT banner / name strips by colour and white card tiles by shape (the
+POT banner anchors + scales the rest), so it self-adjusts to each clip's framing.
+Needs the OCR extra plus the tesseract binary:
 
 ```bash
 pip install -e ".[ocr]"
