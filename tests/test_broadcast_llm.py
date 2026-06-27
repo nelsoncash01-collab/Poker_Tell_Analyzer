@@ -73,6 +73,27 @@ def test_reading_from_json_null_and_bad_values():
     assert r.seats[0].status.kind == "none"
 
 
+def test_reading_from_json_drops_empty_seats():
+    d = {
+        "pot": 203800,
+        "board": [],
+        "seats": [
+            {"name": "GREENSTEIN", "hole_cards": ["Ac", "Jh"],
+             "status": {"kind": "winner", "action_type": None, "amount": None,
+                        "equity_pct": None}},
+            {"name": None, "hole_cards": None,
+             "status": {"kind": "none", "action_type": None, "amount": None,
+                        "equity_pct": None}},
+            {"name": None, "hole_cards": None,
+             "status": {"kind": "none", "action_type": None, "amount": None,
+                        "equity_pct": None}},
+        ],
+    }
+    r = reading_from_json(d)
+    assert len(r.seats) == 1
+    assert r.seats[0].name == "GREENSTEIN"
+
+
 def test_schema_is_strict_object():
     # Structured-outputs requirements: object, additionalProperties false, all
     # properties listed in required.

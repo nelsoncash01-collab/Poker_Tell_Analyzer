@@ -201,11 +201,13 @@ def reading_from_json(d: dict) -> FrameReading:
             norm = [_norm_card(x) for x in raw_cards]
             if len(norm) >= 2 and norm[0] and norm[1]:
                 hole = (norm[0], norm[1])
-        seats.append(SeatReading(
-            name=(s.get("name") or None),
-            hole_cards=hole,
-            status=_status_from_json(s.get("status")),
-        ))
+        name = s.get("name") or None
+        status = _status_from_json(s.get("status"))
+        # Drop fully-empty seats — the model sometimes invents blank name-plates
+        # for empty chairs. A real plate has at least a name, cards, or a status.
+        if name is None and hole is None and status.kind == "none":
+            continue
+        seats.append(SeatReading(name=name, hole_cards=hole, status=status))
     return FrameReading(pot=pot, board=board, seats=seats)
 
 
