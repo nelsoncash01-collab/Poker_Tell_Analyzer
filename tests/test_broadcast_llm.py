@@ -60,7 +60,8 @@ def test_reading_from_json_null_and_bad_values():
         "pot": None,
         "board": ["ZZ", "Ah"],            # ZZ is unrecognized -> dropped
         "seats": [
-            {"name": None, "hole_cards": None,
+            # has a name, so it's kept; tests null hole_cards handling
+            {"name": "NEGREANU", "hole_cards": None,
              "status": {"kind": "none", "action_type": None, "amount": None,
                         "equity_pct": None}},
         ],
@@ -68,7 +69,7 @@ def test_reading_from_json_null_and_bad_values():
     r = reading_from_json(d)
     assert r.pot is None
     assert r.board == ["Ah"]
-    assert r.seats[0].name is None
+    assert r.seats[0].name == "NEGREANU"
     assert r.seats[0].hole_cards is None
     assert r.seats[0].status.kind == "none"
 
